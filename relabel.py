@@ -8,7 +8,7 @@ first_year_RGB = np.array([255,255,0])
 multi_year_RGB = np.array([255,0,0])
 water_RGB = np.array([0,0,255])
 
-
+# another way to do it https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow
 idx_y = np.where(np.all(labeled_img == yong_RGB, axis=-1))
 idx_f = np.where(np.all(labeled_img == first_year_RGB, axis=-1))
 idx_m = np.where(np.all(labeled_img == multi_year_RGB, axis=-1))
