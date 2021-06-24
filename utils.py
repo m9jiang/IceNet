@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import torch
 import csv
+import cv2
 import scipy.io as sio
 from PIL import Image
 
@@ -79,71 +80,6 @@ def get_data_from_labeled_img(labeled_img):
 
     return target,x_list,y_list
 
-# def get_patches(feature_img, mask_img, patch_size):
-#     pad_size = patch_size//2
-#     feature_img = np.pad(feature_img, (pad_size,pad_size), 'constant')
-#     mask_img = np.pad(mask_img, (pad_size,pad_size), 'constant')
-#     target = []
-#     x_list = []
-#     y_list = []
-#     class_list = np.unique(mask_img)
-#     if class_list[0] == 0: #unknown: 0
-#         class_list = class_list[1:]
-#     n_class = class_list.size
-#     for i in range(n_class):
-#         x, y = np.where(mask_img == class_list[i])
-#         target = np.append(target,np.ones(len(x))*class_list[i])
-#         x_list = np.append(x_list,x)
-#         y_list = np.append(y_list,y)
-#     csv_headers = ['Label','Row (Starts from 0)','Col (Starts from 0)']
-#     f = open('test.csv','w',encoding='utf-8',newline='')
-#     csv_writer = csv.writer(f)
-#     csv_writer.writerow(csv_headers)
-#     csv_data = np.transpose(np.vstack((target,x_list,y_list)))
-#     csv_writer.writerows(csv_data)
-#     f.close()
-
-# # def get_masks(labeled_img, train_prop, val_prop = 0, mask_dir)
-# def load_masks(labeled_img, train_prop, val_prop = 0):
-#     if not (os.path.exists(mask_fname) and os.listdir(mask_fname)):
-#         train_mask, val_mask, test_mask = get_masks(target, train_prop, val_prop, save_dir=mask_dir)
-
-#     else:
-#         train_mask = sio.loadmat(os.path.join(mask_fname, 'train_mask.mat'))['train_mask']
-#         val_mask = sio.loadmat(os.path.join(mask_fname, 'val_mask.mat'))['val_mask']
-#         test_mask = sio.loadmat(os.path.join(mask_fname, 'test_mask.mat'))['test_mask']
-
-# def get_masks(target, train_prop, val_prop, save_dir=None):
-#     assert train_prop + val_prop < 1
-#     train_mask = np.zeros((target.shape[0], target.shape[1]))
-#     val_mask = train_mask.copy()
-#     test_mask = train_mask.copy()
-
-#     for i in range(1, target.max() + 1):
-#         idx = np.argwhere(target == i)
-#         train_num = int(round(len(idx) * train_prop))
-#         val_num = int(round(len(idx) * val_prop))
-
-#         np.random.shuffle(idx)
-#         train_idx = idx[:train_num]
-#         val_idx = idx[train_num:train_num + val_num]
-#         test_idx = idx[train_num + val_num:]
-
-#         train_mask[train_idx[:, 0], train_idx[:, 1]] = 1
-#         val_mask[val_idx[:, 0], val_idx[:, 1]] = 1
-#         test_mask[test_idx[:, 0], test_idx[:, 1]] = 1
-
-#     if save_dir:
-#         folder_name = 'train_' + str(train_prop) + '_val_' + str(val_prop)
-#         save_dir = os.path.join(save_dir, folder_name)
-#         if not os.path.exists(save_dir):
-#             os.mkdir(save_dir)
-#         sio.savemat(os.path.join(save_dir, 'train_mask.mat'), {'train_mask': train_mask})
-#         sio.savemat(os.path.join(save_dir, 'val_mask.mat'), {'val_mask': val_mask})
-#         sio.savemat(os.path.join(save_dir, 'test_mask.mat'), {'test_mask': test_mask})
-
-#     return train_mask, val_mask, test_mask
-
 def get_masks_from_labeled_img(labeled_img, train_prop = 1, val_prop = 0, save_dir=None):
     assert train_prop + val_prop <= 1, "train_prop + val_prop > 1"
     test = True
@@ -192,10 +128,28 @@ def get_masks_from_labeled_img(labeled_img, train_prop = 1, val_prop = 0, save_d
 
     return train_mask, val_mask
 
+def load_masks(labeled_img, mask_dir, train_prop = 1, val_prop = 0):
+    mask_fname = os.path.join(mask_dir, 'train_' + str(train_prop) + '_val_' + str(val_prop))
+    if not (os.path.exists(mask_fname) and os.listdir(mask_fname)):
+        # train_mask, val_mask, test_mask = get_masks(target, train_prop, val_prop, save_dir=mask_dir)
+        train_mask, val_mask = get_masks_from_labeled_img(labeled_img, train_prop, val_prop, save_dir=mask_dir)
+
+    else:
+        train_mask = sio.loadmat(os.path.join(mask_fname, 'train_mask.mat'))['train_mask']
+        val_mask = sio.loadmat(os.path.join(mask_fname, 'val_mask.mat'))['val_mask']
+        # test_mask = sio.loadmat(os.path.join(mask_fname, 'test_mask.mat'))['test_mask']
+    if train_mask == None or val_mask ==None:
+        print('No mask images!')
+        exit()
+
+    return train_mask, val_mask
 
 def get_patch_samples(data, target, mask, patch_size=13, to_tensor=True):
     if data.ndim != 3:
         print("Unsupported feature image size!")
+        sys.exit()
+    if data.shape[1]!=target.shape[0] or data.shape[2]!=target.shape[1]:
+        print("data and target sizes do not match!")
         sys.exit()
     # padding data
     pad_size = patch_size // 2
@@ -216,11 +170,12 @@ def get_patch_samples(data, target, mask, patch_size=13, to_tensor=True):
     index = np.argwhere(mask == 1)
     patch_target = np.zeros((index.shape[0]))
     patch_data = np.zeros((index.shape[0], data.shape[0], patch_size, patch_size))
+    print("Number of samples is {}".format(index.shape[0]))
     
     for i, loc in enumerate(index):
         patch = data[:, loc[0] - pad_size:loc[0] + pad_size + 1, loc[1] - pad_size:loc[1] + pad_size + 1]
         patch_data[i, :, :, :] = patch
-        patch_target[i] = target[loc]
+        patch_target[i] = target[loc[0],loc[1]]
 
     # shuffle
     state = np.random.get_state()
@@ -238,7 +193,7 @@ def get_patch_samples(data, target, mask, patch_size=13, to_tensor=True):
 
     return patch_data, patch_target
 
-def get_one_batch(train_data, train_target=None, batch_size=100):
+def get_one_batch(train_data, train_target=None, batch_size=500):
 
     if train_target is None:
         train_target = torch.zeros(train_data.shape[0])
