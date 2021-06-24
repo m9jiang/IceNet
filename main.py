@@ -1,43 +1,10 @@
 import numpy as np
 from utils import *
 import cv2
+import torch
+from torch import nn, optim
 
-# a = np.arange(9).reshape((3, 3))
-# a[1,1]=1
-# print(a)
-# get_data_from_mask(a)
 
-# arr3D = np.array([[1, 1, 2, 2, 3, 4], [1, 1, 2, 2, 3, 4], [1, 1, 2, 2, 3, 4]])
-# arr3D = np.array([[[1, 1, 2, 2, 3, 4], [1, 1, 2, 2, 3, 4], [1, 1, 2, 2, 3, 4]], 
-#                   [[0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5]], 
-#                   [[1, 1, 2, 2, 3, 4], [1, 1, 2, 2, 3, 4], [1, 1, 2, 2, 3, 4]]])
-# print(arr3D)
-# b = np.ones(arr3D.shape)
-# print(b)
-# arr3D = np.pad(arr3D,(0, 2, 2))
-# print(arr3D)
-
-arr3D = np.array([[0, 1, 2, 2, 0, 4], [1, 1, 2, 0, 3, 4], [0, 1, 2, 2, 3, 4]])
-idx = np.argwhere(arr3D!=0)
-print (idx)
-print (arr3D)
-arr3D1 = np.array([[1, 1, 2, 2, 3, 4], [1, 1, 2, 2, 3, 4], [1, 1, 2, 2, 3, 4]])
-print (arr3D1)
-b = arr3D*arr3D1
-print (b)
-a=b!=0
-print (a)
-b=b[b != 0]-1
-print (b)
-a=np.zeros((5))
-print (arr3D1)
-# print(arr3D)
-# print(arr3D1)
-# a= np.zeros((2,arr3D.shape[0],arr3D.shape[1]))
-# a[0,:,:] = arr3D
-# a[1,:,:] = arr3D1
-# print(a)
-# print(arr3D)
 # def train(model, train_data, train_target):
 
 #     global LR, EPOCH, BATCH_SIZE, NET_TYPE, TEST_INTERVAL, \
@@ -138,8 +105,10 @@ def test(model, data, target=None, batch_size = 2000):
 
 hh_path = "D:/Github/IceNet/data/20100524_034756_hh.tif"
 hv_path = "D:/Github/IceNet/data/20100524_034756_hv.tif"
+labeld_img_path = ""
 HH = cv2.imread(hh_path)
 HV = cv2.imread(hv_path)
+labeld_img = cv2.imread(labeld_img_path)
 if HH.shape != HV.shape:
     print("Input images have different sizes!")
     exit()
@@ -148,6 +117,9 @@ if HH.shape != HV.shape:
 HH = HH/255
 HV = HV/255
 
-feature_map = np.zeros((2, HH.shape[0], HH.shape[0]),dtype=float)
-feature_map[0,:,:] = HH
-feature_map[1,:,:] = HV
+feature_map = np.zeros((2, HH.shape[0], HH.shape[1]),dtype=float)
+feature_map[0,:,:] = HH[:,:,0]
+feature_map[1,:,:] = HV[:,:,0]
+
+get_masks_from_labeled_img(labeld_img,train_prop=0.8,val_prop=0.2, save_dir ='D:\Github\IceNet')
+print("111")

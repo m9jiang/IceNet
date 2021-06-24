@@ -35,7 +35,7 @@ def color_label(grey_label, landmask = None):
     image[i, j, :] = (255, 255, 0)
     i, j = np.where(grey_label == 3)
     image[i, j, :] = (255, 0, 0)
-    i, j = np.where(grey_label == 0)
+    i, j = np.where(grey_label == 4)
     image[i, j, :] = (150, 200, 255)
     if landmask is not None:
         landmask = landmask[:, :, 0]
@@ -203,15 +203,24 @@ def get_patch_samples(data, target, mask, patch_size=13, to_tensor=True):
     target = np.pad(target, ((pad_size, pad_size), (pad_size, pad_size)), 'constant')
     mask = np.pad(mask, ((pad_size, pad_size), (pad_size, pad_size)), 'constant')
 
+    # # get patches
+    # patch_target = target * mask
+    # patch_target = patch_target[patch_target != 0] - 1
+    # patch_data = np.zeros((patch_target.shape[0], data.shape[0], patch_size, patch_size))
+    # index = np.argwhere(mask == 1)
+    # for i, loc in enumerate(index):
+    #     patch = data[:, loc[0] - pad_size:loc[0] + pad_size + 1, loc[1] - pad_size:loc[1] + pad_size + 1]
+    #     patch_data[i, :, :, :] = patch
+
     # get patches
     index = np.argwhere(mask == 1)
-    patch_target = np.zeros((index.shape[0], 1))
+    patch_target = np.zeros((index.shape[0]))
     patch_data = np.zeros((index.shape[0], data.shape[0], patch_size, patch_size))
     
     for i, loc in enumerate(index):
         patch = data[:, loc[0] - pad_size:loc[0] + pad_size + 1, loc[1] - pad_size:loc[1] + pad_size + 1]
         patch_data[i, :, :, :] = patch
-        patch_target[i,0] = target[loc]
+        patch_target[i] = target[loc]
 
     # shuffle
     state = np.random.get_state()
