@@ -138,9 +138,9 @@ def load_masks(labeled_img, mask_dir, train_prop = 1, val_prop = 0):
         train_mask = sio.loadmat(os.path.join(mask_fname, 'train_mask.mat'))['train_mask']
         val_mask = sio.loadmat(os.path.join(mask_fname, 'val_mask.mat'))['val_mask']
         # test_mask = sio.loadmat(os.path.join(mask_fname, 'test_mask.mat'))['test_mask']
-    if train_mask == None or val_mask ==None:
-        print('No mask images!')
-        exit()
+    # if train_mask == None or val_mask ==None:
+    #     print('No mask images!')
+    #     exit()
 
     return train_mask, val_mask
 
@@ -167,6 +167,8 @@ def get_patch_samples(data, target, mask, patch_size=13, to_tensor=True):
     #     patch_data[i, :, :, :] = patch
 
     # get patches
+    # starting label should be 0 for CrossEntropyLoss
+    target = target - 2 # special cases
     index = np.argwhere(mask == 1)
     patch_target = np.zeros((index.shape[0]))
     patch_data = np.zeros((index.shape[0], data.shape[0], patch_size, patch_size))

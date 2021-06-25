@@ -4,6 +4,7 @@ from utils import *
 import cv2
 import torch
 from torch import nn, optim
+from SSResNet import ResNet
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -49,6 +50,7 @@ def train(model, train_data, train_target):
     test_accuracy = None
     for epoch in range(EPOCH):
         model.train()
+        # would it be better to shuffle data each epoch?
         for idx, samples in enumerate(get_one_batch(train_data, train_target, BATCH_SIZE)):
             data = samples[0]
             target = samples[1]
@@ -57,8 +59,8 @@ def train(model, train_data, train_target):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            batch_prop = (idx + 1)/len(train_data)
-            print('Training: Epoch: {0:5}, Batch: {1:3}, Batch rate: {2:.2%}'.format(epoch + 1, idx + 1, batch_prop))
+            batch_prop = (idx + 1)*BATCH_SIZE/len(train_data)
+            # print('Training: Epoch: {0:5}, Batch: {1:3}, Batch rate: {2:.2%}'.format(epoch + 1, idx + 1, batch_prop))
 
     
             # if idx % TEST_INTERVAL == 0:
@@ -83,6 +85,7 @@ def train(model, train_data, train_target):
             loss_list.append(loss.item())
             # train_acc_list.append(train_accuracy)
             # test_acc_list.append(test_accuracy)
+        torch.cuda.empty_cache()
         model.eval()
         train_accuracy = test(model, train_data.cuda(), train_target.cuda())[1]
         val_accuracy = test(model, val_data.cuda(), val_target.cuda())[1]
@@ -96,9 +99,12 @@ def train(model, train_data, train_target):
             state_dict = deepcopy(model.state_dict())
         print('Epoch: {0:5}, Batch: {1:3} | Loss: {2:13.8f} | Train: {3:.3%}　| Val: {4:.3%} | Test: {5:.3%}'.
             format(epoch + 1, idx + 1, loss.item(), train_accuracy, val_accuracy, test_accuracy))
+        torch.cuda.empty_cache()
 
     # plot_curves(loss_list, train_acc_list, test_acc_list)
     model_name = NET_TYPE + '_' + str(BATCH_SIZE) + '_' + str(EPOCH) + '.pkl'
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
     model_dir = os.path.join(save_dir, model_name)
     torch.save(state_dict, model_dir)
     print('Best Results: ')
@@ -190,7 +196,7 @@ feature_map = np.zeros((2, HH.shape[0], HH.shape[1]),dtype=float)
 feature_map[0,:,:] = HH
 feature_map[1,:,:] = HV
 
-train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, save_dir ='D:\Github\IceNet')
+train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, mask_dir ='D:\Github\IceNet')
 # train_mask, val_mask = get_masks_from_labeled_img(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, save_dir ='D:\Github\IceNet')
 
 
@@ -199,4 +205,17 @@ train_data, train_target = get_patch_samples(feature_map, labeld_img, train_mask
 val_data, val_target = get_patch_samples(feature_map, labeld_img, val_mask, patch_size=patch_size, to_tensor=to_tensor)
 # test_data, test_target = get_patch_samples(feature_map, labeld_img, test_mask, patch_size=patch_size, to_tensor=to_tensor)
 
-print("111")
+config = {
+    'input_shape': [1, 2, patch_size, patch_size],
+    'n_classes': 3,
+    'channels': 128,
+    'blocks': 3,
+    'is_bn': True,
+    'is_dropout': False,
+    'p': 0.2
+}
+model  = ResNet(config)
+
+train(model, train_data, train_target)
+
+print("Done!")
