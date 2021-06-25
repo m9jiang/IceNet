@@ -1,21 +1,23 @@
 import numpy as np
 from copy import deepcopy
 from utils import *
+from relabel import *
 import cv2
 import torch
 from torch import nn, optim
-from SSResNet import ResNet
+from models import SSResNet
+# from models import basic_cnn
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
 ############################################# set super-parameters ############################################
 
-TRAIN_PROP = 0.8
-VAL_PROP = 0.2
+TRAIN_PROP = 1 #0.8
+VAL_PROP = 0   #0.2
 BATCH_SIZE = 5000   #5000
 PATCH_SIZE = 13
-EPOCH = 50
+EPOCH = 10
 LR = 0.0001
 TEST_INTERVAL = 1
 NET_TYPE = 'basic_cnn'  # 'bpnet', 'basic_cnn', 'resnet', 'dip_resnet'
@@ -176,35 +178,55 @@ def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
     return pred
 
 
+############################################# One Scene ############################################
+
+# patch_size = 13
+# to_tensor = True
+# hh_path = "D:/Github/IceNet/data/20100524_034756_hh.tif"
+# hv_path = "D:/Github/IceNet/data/20100524_034756_hv.tif"
+# labeld_img_path = "D:/Github/IceNet/data/20100524_034756_label.png"
+# HH = cv2.imread(hh_path)[:,:,0]
+# HV = cv2.imread(hv_path)[:,:,0]
+# labeld_img = cv2.imread(labeld_img_path)[:,:,0]
+# if HH.shape != HV.shape or HH.shape != labeld_img.shape:
+#     print("Input images have different sizes!")
+#     exit()
+
+# # Normalization
+# HH = HH/255
+# HV = HV/255
+
+# feature_map = np.zeros((2, HH.shape[0], HH.shape[1]),dtype=float)
+# feature_map[0,:,:] = HH
+# feature_map[1,:,:] = HV
+
+# train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, mask_dir ='D:\Github\IceNet')
+# # train_mask, val_mask = get_masks_from_labeled_img(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, save_dir ='D:\Github\IceNet')
+
+
+
+# train_data, train_target = get_patch_samples(feature_map, labeld_img, train_mask, patch_size=patch_size, to_tensor=to_tensor)
+# val_data, val_target = get_patch_samples(feature_map, labeld_img, val_mask, patch_size=patch_size, to_tensor=to_tensor)
+# # test_data, test_target = get_patch_samples(feature_map, labeld_img, test_mask, patch_size=patch_size, to_tensor=to_tensor)
+
+# config = {
+#     'input_shape': [1, 2, patch_size, patch_size],
+#     'n_classes': 3,
+#     'channels': 128,
+#     'blocks': 3,
+#     'is_bn': True,
+#     'is_dropout': False,
+#     'p': 0.2
+# }
+# model  = SSResNet.ResNet(config)
+
+# train(model, train_data, train_target)
+
+# print("Done!")
+
+############################################# Leave-one-out ############################################
 patch_size = 13
 to_tensor = True
-hh_path = "D:/Github/IceNet/data/20100524_034756_hh.tif"
-hv_path = "D:/Github/IceNet/data/20100524_034756_hv.tif"
-labeld_img_path = "D:/Github/IceNet/data/20100524_034756_label.png"
-HH = cv2.imread(hh_path)[:,:,0]
-HV = cv2.imread(hv_path)[:,:,0]
-labeld_img = cv2.imread(labeld_img_path)[:,:,0]
-if HH.shape != HV.shape or HH.shape != labeld_img.shape:
-    print("Input images have different sizes!")
-    exit()
-
-# Normalization
-HH = HH/255
-HV = HV/255
-
-feature_map = np.zeros((2, HH.shape[0], HH.shape[1]),dtype=float)
-feature_map[0,:,:] = HH
-feature_map[1,:,:] = HV
-
-train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, mask_dir ='D:\Github\IceNet')
-# train_mask, val_mask = get_masks_from_labeled_img(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, save_dir ='D:\Github\IceNet')
-
-
-
-train_data, train_target = get_patch_samples(feature_map, labeld_img, train_mask, patch_size=patch_size, to_tensor=to_tensor)
-val_data, val_target = get_patch_samples(feature_map, labeld_img, val_mask, patch_size=patch_size, to_tensor=to_tensor)
-# test_data, test_target = get_patch_samples(feature_map, labeld_img, test_mask, patch_size=patch_size, to_tensor=to_tensor)
-
 config = {
     'input_shape': [1, 2, patch_size, patch_size],
     'n_classes': 3,
@@ -214,8 +236,59 @@ config = {
     'is_dropout': False,
     'p': 0.2
 }
-model  = ResNet(config)
+
+root_path = "D:/Data/Resnet/Multi_folder"
+root = [x[0] for x in os.walk(root_path)][0]
+dirs = [x[0] for x in os.walk(root_path)][1:]
+
+LOO_train_data = None
+LOO_train_target = None
+
+for idx, dir_name in enumerate(dirs):
+    # relabel_train_val_from_sip(os.path.join(root,dir_name))
+    one_scene = dir_name
+    one_out = dir_name.copy()
+    del one_out[idx]
+    for i, one_out_name in enumerate(one_out):
+        hh_path = os.path.join(root,dir_name,'imagery_HH4_by_4average.tif')
+        hv_path = os.path.join(root,dir_name,'imagery_HV4_by_4average.tif')
+        labeld_img_path = os.path.join(root,dir_name,'all_train_mask.png')
+        HH = cv2.imread(hh_path)[:,:,0]
+        HV = cv2.imread(hv_path)[:,:,0]
+        labeld_img = cv2.imread(labeld_img_path)[:,:,0]
+        if HH.shape != HV.shape or HH.shape != labeld_img.shape:
+            print("Input images have different sizes!")
+            exit()
+
+        # Normalization
+        HH = HH/255
+        HV = HV/255
+
+        feature_map = np.zeros((2, HH.shape[0], HH.shape[1]),dtype=float)
+        feature_map[0,:,:] = HH
+        feature_map[1,:,:] = HV
+
+        train_mask, _ = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, mask_dir ='D:\Github\IceNet')
+        train_data, train_target = get_patch_samples(feature_map, labeld_img, train_mask, patch_size=patch_size, to_tensor=to_tensor)
+        # append or deep copy?
+        if idx == 0:
+            LOO_train_data = train_data
+            LOO_train_target = train_target
+        else:
+            LOO_train_data = np.append(LOO_train_data, train_data, axis=0)
+            LOO_train_target = np.append(LOO_train_target, train_target, axis=0)
+
+    
+
+
+
+
+model  = SSResNet.ResNet(config)
 
 train(model, train_data, train_target)
 
-print("Done!")
+
+
+
+
+print("Done")

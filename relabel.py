@@ -1,23 +1,46 @@
 import cv2
 import numpy as np
-labeled_img = cv2.imread('D:/Github/IceNet/data/20100524_034756_hh_train_mask.png')
-labeled_img = screen = cv2.cvtColor(labeled_img, cv2.COLOR_BGR2RGB)
+import os
 
-yong_RGB = np.array([128,0,128])
-first_year_RGB = np.array([255,255,0])
-multi_year_RGB = np.array([255,0,0])
-water_RGB = np.array([0,0,255])
+def relabel_train_val_from_sip(dir):
 
-# another way to do it https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow
-idx_y = np.where(np.all(labeled_img == yong_RGB, axis=-1))
-idx_f = np.where(np.all(labeled_img == first_year_RGB, axis=-1))
-idx_m = np.where(np.all(labeled_img == multi_year_RGB, axis=-1))
-idx_w = np.where(np.all(labeled_img == water_RGB, axis=-1))
+    if os.path.exists(os.path.join(dir, 'all_train_mask.png')):
+        return
 
-relabel = np.zeros((labeled_img.shape[0],labeled_img.shape[1]),dtype=int)
-relabel[idx_y] = 1
-relabel[idx_f] = 2
-relabel[idx_m] = 3
-relabel[idx_w] = 4
+    yong_RGB = np.array([128,0,128])
+    first_year_RGB = np.array([255,255,0])
+    multi_year_RGB = np.array([255,0,0])
+    water_RGB = np.array([0,0,255])   
+    
+    labeled_img1 = cv2.imread(os.path.join(dir, 'train_mask.png'))
+    labeled_img1 = screen = cv2.cvtColor(labeled_img1, cv2.COLOR_BGR2RGB)
 
-cv2.imwrite('D:/Github/IceNet/data/20100524_034756_label.png',relabel)
+    labeled_img2 = cv2.imread(os.path.join(dir, 'val_mask.png'))
+    labeled_img2 = screen = cv2.cvtColor(labeled_img2, cv2.COLOR_BGR2RGB)
+
+
+
+    # another way to do it https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow
+    idx_y1 = np.where(np.all(labeled_img1 == yong_RGB, axis=-1))
+    idx_f1 = np.where(np.all(labeled_img1 == first_year_RGB, axis=-1))
+    idx_m1 = np.where(np.all(labeled_img1 == multi_year_RGB, axis=-1))
+    idx_w1 = np.where(np.all(labeled_img1 == water_RGB, axis=-1))
+
+    idx_y2 = np.where(np.all(labeled_img2 == yong_RGB, axis=-1))
+    idx_f2 = np.where(np.all(labeled_img2 == first_year_RGB, axis=-1))
+    idx_m2 = np.where(np.all(labeled_img2 == multi_year_RGB, axis=-1))
+    idx_w2 = np.where(np.all(labeled_img2 == water_RGB, axis=-1))
+
+
+    relabel = np.zeros((labeled_img1.shape[0],labeled_img1.shape[1]),dtype=int)
+    relabel[idx_y1] = 1
+    relabel[idx_f1] = 2
+    relabel[idx_m1] = 3
+    relabel[idx_w1] = 4
+
+    relabel[idx_y2] = 1
+    relabel[idx_f2] = 2
+    relabel[idx_m2] = 3
+    relabel[idx_w2] = 4
+
+    cv2.imwrite(os.path.join(dir, 'all_train_mask.png'),relabel)
