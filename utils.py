@@ -6,6 +6,7 @@ import csv
 import cv2
 import scipy.io as sio
 from PIL import Image
+import time
 
 def color_label(grey_label, landmask = None):
     """
@@ -168,11 +169,11 @@ def get_patch_samples(data, target, mask, patch_size=13, to_tensor=True):
 
     # get patches
     # starting label should be 0 for CrossEntropyLoss
-    target = target - 2 # special cases
+    target = target - 1 
     index = np.argwhere(mask == 1)
     patch_target = np.zeros((index.shape[0]))
     patch_data = np.zeros((index.shape[0], data.shape[0], patch_size, patch_size))
-    print("Number of samples is {}".format(index.shape[0]))
+    # print("Number of samples is {}".format(index.shape[0]))
     
     for i, loc in enumerate(index):
         patch = data[:, loc[0] - pad_size:loc[0] + pad_size + 1, loc[1] - pad_size:loc[1] + pad_size + 1]
@@ -229,7 +230,7 @@ def read_img_as_patches(feature_img, patch_size, to_tensor=True):
     #     patch_data = np.zeros((feature_img.shape[1] * feature_img.shape[2], feature_img.shape[0], patch_size, patch_size))
     #     feature_img = np.pad(feature_img, ((0,0), (pad_size,pad_size), (pad_size,pad_size)), 'constant')
     # else:
-
+    # start = time.time()
     if feature_img.ndim != 3:
         print("Unsupported feature image size!")
         sys.exit()
@@ -241,7 +242,16 @@ def read_img_as_patches(feature_img, patch_size, to_tensor=True):
     index = np.argwhere(mask)
     for i, loc in enumerate(index):
         patch_data[i, :, :, :] = feature_img[:, loc[0] - pad_size:loc[0] + pad_size + 1, loc[1] - pad_size:loc[1] + pad_size + 1]
+        # loading_rate = (i+1)/len(index)
+        # if loading_rate < 1:
+        #     print('\r','Loading image {:.2%}   '.format(loading_rate), end='', flush=True)
+        # else:
+        #     print('\r','Loading image {:.2%}   '.format(1), end='', flush=True)
     
+    # end = time.time()
+    # m, s = divmod(end - start, 60)
+    # h, m = divmod(m, 60)
+    # print('Loading time: {:.0f}:{:.0f}:{:.0f}'.format(h,m,s))
     if to_tensor:
         patch_data = torch.from_numpy(patch_data).float()
         if torch.cuda.is_available():
