@@ -142,7 +142,7 @@ for idx, dir_name in enumerate(dirs):
     map_color = color_label(map, landmask=None)
 
     map_img = Image.fromarray(map)
-    map_img.save(os.path.join(root,dir_name, 'ResNet_Debug_patch_{}.tif'.format(patch_size)))
+    map_img.save(os.path.join(root,dir_name, 'ResNet_Debug_patch_{}.png'.format(patch_size)))
     map_color_img = Image.fromarray(map_color)
     map_color_img.save(os.path.join(root,dir_name, 'ResNet_Debug_patch_{}_color.png'.format(patch_size)))
 
