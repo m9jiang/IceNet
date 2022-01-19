@@ -61,7 +61,8 @@ dirs = os.listdir(root)
 
 for idx, dir_name in enumerate(dirs):
 
-    model_path = os.path.join(root,dir_name,'Debug_model', 'ResNet_5000_50.pkl')
+    # model_path = os.path.join(root,dir_name,'Debug_model', 'ResNet_5000_50.pkl')
+    model_path = os.path.join(root,dir_name,'Debug_LOO_model', 'ResNet_2500_50.pkl')
     hh_path = os.path.join(root,dir_name,'imagery_HH4_by_4average.tif')
     hv_path = os.path.join(root,dir_name,'imagery_HV4_by_4average.tif')
     labeld_img_path = os.path.join(root,dir_name,'all_train_mask.png')

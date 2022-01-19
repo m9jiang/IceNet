@@ -7,6 +7,7 @@ import cv2
 import scipy.io as sio
 from PIL import Image
 import time
+import matplotlib.pyplot as plt
 
 def color_label(grey_label, landmask = None):
     """
@@ -27,7 +28,7 @@ def color_label(grey_label, landmask = None):
         Background (0, 0, 0)
         Yong ice (170, 40, 240)
         First year ice (255, 255, 0)
-        Multi-year ice (255, 0, 0)
+        Multi-year ice (200, 0, 0) used to be (255, 0, 0)
         Open water (150, 200, 255)
     """
     image = np.zeros(grey_label.shape + (3,), dtype=np.uint8)
@@ -36,7 +37,7 @@ def color_label(grey_label, landmask = None):
     i, j = np.where(grey_label == 2)
     image[i, j, :] = (255, 255, 0)
     i, j = np.where(grey_label == 3)
-    image[i, j, :] = (255, 0, 0)
+    image[i, j, :] = (200, 0, 0)
     i, j = np.where(grey_label == 4)
     image[i, j, :] = (150, 200, 255)
     if landmask is not None:
@@ -45,6 +46,142 @@ def color_label(grey_label, landmask = None):
         image[i, j, :] = (0, 0, 0)
     
     return image
+
+def color_label_ice_water(grey_label, landmask = None):
+    """
+    Parameters
+    ----------
+    grey_label : grey-level labeled ice map
+        0: background 
+        1: ice
+        2: open water
+    landmask : 0: land
+
+    Returns
+    -------
+    result : array of float, shape (M, N, 3)
+        WMO standard RGS ice map
+        Background (0, 0, 0)
+        Ice (255, 255, 0)
+        Open water (150, 200, 255)
+    """
+    image = np.zeros(grey_label.shape + (3,), dtype=np.uint8)
+    i, j = np.where(grey_label == 1)
+    image[i, j, :] = (255, 255, 0)
+    i, j = np.where(grey_label == 2)
+    image[i, j, :] = (150, 200, 255)
+    if landmask is not None:
+        landmask = landmask[:, :, 0]
+        i, j = np.where(landmask == 0)
+        image[i, j, :] = (0, 0, 0)
+    
+    return image
+
+def color2grey(colored, landmask = None):
+    """
+    Parameters
+    ----------
+    colored: array of float, shape (M, N, 3)
+        WMO standard RGS ice map
+        Background (0, 0, 0)
+        Yong ice (170, 40, 240)
+        First year ice (255, 255, 0)
+        Multi-year ice (200, 0, 0) used to be (255, 0, 0)
+        Open water (150, 200, 255)
+
+    Returns
+    -------
+    grey_label : grey-level labeled ice map
+        0: background 
+        1: yong ice
+        2: first year ice
+        3: multi-year ice
+        4: open water
+    landmask : 0: land
+    """
+    image = np.zeros(colored.shape[:-1], dtype=np.uint8)
+    image[np.all(colored == (170, 40, 240), axis=-1)] = 1
+    image[np.all(colored == (255, 255, 0), axis=-1)] = 2
+    image[np.all(colored == (200, 0, 0), axis=-1)] = 3
+    image[np.all(colored == (150, 200, 255), axis=-1)] = 4
+    if landmask is not None:
+        landmask = landmask[:, :, 0]
+        i, j = np.where(landmask == 0)
+        image[i, j, :] = (0, 0, 0)
+    
+    return image
+
+def relabel_train_val_from_sip(dir):
+    """
+    Combining RGB train and val masks (train_mask.png, val_mask.png) 
+    made by SIP and relabel them into one grey-level training mask (all_train_mask.png)
+    for LOO.
+    """
+    if os.path.exists(os.path.join(dir, 'all_train_mask.png')):
+        return
+
+    yong_RGB = np.array([128,0,128])
+    first_year_RGB = np.array([255,255,0])
+    multi_year_RGB = np.array([255,0,0])
+    water_RGB = np.array([0,0,255])   
+    
+    labeled_img1 = cv2.imread(os.path.join(dir, 'train_mask.png'))
+    labeled_img1 = screen = cv2.cvtColor(labeled_img1, cv2.COLOR_BGR2RGB)
+
+    labeled_img2 = cv2.imread(os.path.join(dir, 'val_mask.png'))
+    labeled_img2 = screen = cv2.cvtColor(labeled_img2, cv2.COLOR_BGR2RGB)
+
+
+
+    # another way to do it https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow
+    idx_y1 = np.where(np.all(labeled_img1 == yong_RGB, axis=-1))
+    idx_f1 = np.where(np.all(labeled_img1 == first_year_RGB, axis=-1))
+    idx_m1 = np.where(np.all(labeled_img1 == multi_year_RGB, axis=-1))
+    idx_w1 = np.where(np.all(labeled_img1 == water_RGB, axis=-1))
+
+    idx_y2 = np.where(np.all(labeled_img2 == yong_RGB, axis=-1))
+    idx_f2 = np.where(np.all(labeled_img2 == first_year_RGB, axis=-1))
+    idx_m2 = np.where(np.all(labeled_img2 == multi_year_RGB, axis=-1))
+    idx_w2 = np.where(np.all(labeled_img2 == water_RGB, axis=-1))
+
+
+    relabel = np.zeros((labeled_img1.shape[0],labeled_img1.shape[1]),dtype=int)
+    relabel[idx_y1] = 1
+    relabel[idx_f1] = 2
+    relabel[idx_m1] = 3
+    relabel[idx_w1] = 4
+
+    relabel[idx_y2] = 1
+    relabel[idx_f2] = 2
+    relabel[idx_m2] = 3
+    relabel[idx_w2] = 4
+
+    cv2.imwrite(os.path.join(dir, 'all_train_mask.png'),relabel)
+
+def relabel_train_val_from_sip_ice_water(dir, overwrite=False):
+
+    if os.path.exists(os.path.join(dir, 'all_train_mask.png')):
+        return
+
+    ice_RGB = np.array([255,255,0])
+    water_RGB = np.array([0,0,255])   
+    
+    labeled_img = cv2.imread(os.path.join(dir, 'test_mask.png'))
+    labeled_img = cv2.cvtColor(labeled_img, cv2.COLOR_BGR2RGB)
+
+    # another way to do it https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow
+    idx_ice = np.where(np.all(labeled_img == ice_RGB, axis=-1))
+    idx_water = np.where(np.all(labeled_img == water_RGB, axis=-1))
+
+    relabel = np.zeros((labeled_img.shape[0],labeled_img.shape[1]),dtype=int)
+    relabel[idx_ice] = 1
+    relabel[idx_water] = 2
+
+    save_dir = os.path.join(dir, 'all_train_mask.png')
+
+    if os.path.exists(save_dir):
+        os.remove(save_dir)
+    cv2.imwrite(save_dir,relabel)
 
 def get_data_from_labeled_img(labeled_img):
     """
@@ -259,6 +396,20 @@ def read_img_as_patches(feature_img, patch_size, to_tensor=True):
 
     return patch_data
     
-
+def plot_curves(train_accuracy, test_accuracy, loss, test_loss=None, save_dir=None):
+    f, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 20))
+    ax1.set_title('Train/Val Loss', fontsize='x-large')
+    ax2.set_title('Train and Test Accuracies', fontsize='x-large')
+    ax1.plot(loss, color='r', label='Train Loss')
+    if test_loss is not None:
+        ax1.plot(loss, color='g', label='Val Loss')
+    ax2.plot(train_accuracy, color='r', label='Train Accuracy')
+    ax2.plot(test_accuracy, color='g', label='Test Accuracy')
+    legend = ax2.legend(fontsize='x-large', loc='lower right', shadow=True)
+    #legend.get_frame().set_facecolor('C0')
+    #plt.tight_layout()
+    if save_dir is not None:
+        plt.savefig(os.path.join(save_dir,'learning_metric.png'))
+    # plt.show()
     
 
