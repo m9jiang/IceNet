@@ -3,47 +3,39 @@ from copy import deepcopy
 from utils import *
 import cv2
 import torch
-from copy import deepcopy
 from torch import nn, optim
 from models import SSResNet
-import scipy.io as sio
 import pandas as pd
+import os
 # from models import basic_cnn
 
 # TODO: Add Tensorboard and Logger
 
-# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-# print(device)
 
 if torch.cuda.is_available():
-    print("CUDA is available. Version: ",torch.version.cuda)
-    print("GPU model is: ",torch.cuda.get_device_name())
+    print("CUDA is available. Version: ", torch.version.cuda)
+    print("GPU model is: ", torch.cuda.get_device_name())
 else:
     print("CUDA is unavailable!")
 
 
-############################################# set hyper-parameters ############################################
+############################## set hyper-parameters ##########################
 
-TRAIN_PROP = 0.8 #0.8
-VAL_PROP = 0.2   #0.2
-BATCH_SIZE = 5000   #5000
+TRAIN_PROP = 0.8    # 0.8
+VAL_PROP = 0.2      # 0.2
+BATCH_SIZE = 5000   # 5000
 PATCH_SIZE = 13
-EPOCH = 50
+EPOCH = 100
 LR = 0.0001
 TEST_INTERVAL = 1
-NET_TYPE = 'ResNet'  # 'bpnet', 'basic_cnn', 'resnet', 'dip_resnet'
-# DATA_TYPE = 'patch'  # 'patch'(resnet, cnn), 'vector'(bp), 'full_image'(dip_resnet)
-# CONV_LAYERS = 3
-# FEATURE_NUMS = [32, 64, 64]
-# IS_BN = True  # set 'True' means using batch normalization
-# CONV_MODE = 'same' 
-# config = dict(conv_layers=CONV_LAYERS, feature_nums=FEATURE_NUMS, is_bn=IS_BN, conv_mode=CONV_MODE)#, act_fun=ACT_FUN, pad=PAD)
+# 'bpnet', 'basic_cnn', 'resnet', 'dip_resnet'
+NET_TYPE = 'ResNet'
+# 'patch'(resnet, cnn), 'vector'(bp), 'full_image'(dip_resnet)
+# DATA_TYPE = 'patch'
 
 
-
-
-
-def train(model, train_data, train_target, test_data = None, test_target = None, save_dir = None):
+def train(model, train_data, train_target, test_data=None,
+          test_target=None, save_dir=None):
 
     global LR, EPOCH, BATCH_SIZE, NET_TYPE, TEST_INTERVAL
     if torch.cuda.is_available():
@@ -51,17 +43,18 @@ def train(model, train_data, train_target, test_data = None, test_target = None,
     criterion = nn.CrossEntropyLoss()  # loss function: cross entropy
     optimizer = optim.Adam(model.parameters(), lr=LR)  # optimizer: adam
     loss_list = []
-    test_loss_list=[]
+    test_loss_list = []
     test_acc_list = []
-    train_acc_list =[]
+    train_acc_list = []
     best_train = 0
     best_val = 0
     best_test = 0
-    if save_dir == None:
+    if save_dir is None:
         save_dir = './Debug_model'
     else:
-        save_dir = os.path.join(save_dir,'Debug_all_model_hv')
-    model_name = NET_TYPE + '_batch_' + str(BATCH_SIZE) + '_epoch_' + str(EPOCH)
+        save_dir = os.path.join(save_dir, 'Debug_encoder')
+    model_name = (NET_TYPE + '_batch_' + str(BATCH_SIZE) + '_epoch_' +
+                  str(EPOCH))
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     state_dict = None
@@ -71,7 +64,8 @@ def train(model, train_data, train_target, test_data = None, test_target = None,
         model.train()
         # would it be better to shuffle data each epoch?
         total_loss = 0
-        for idx, samples in enumerate(get_one_batch(train_data, train_target, BATCH_SIZE)):
+        for idx, samples in enumerate(get_one_batch(train_data, train_target,
+                                      BATCH_SIZE)):
             data = samples[0]
             target = samples[1]
             output = model(data)
@@ -82,9 +76,11 @@ def train(model, train_data, train_target, test_data = None, test_target = None,
             batch_prop = (idx + 1)*BATCH_SIZE/len(train_data)
             # print('Training: Epoch: {0:5}, Batch: {1:3}, Batch rate: {2:.2%}'.format(epoch + 1, idx + 1, batch_prop))
             if batch_prop < 1:
-                print('\r','Training {:.2%}   '.format(batch_prop), end='', flush=True)
+                print('\r', f'Training {batch_prop:.2%}', end='',
+                      flush=True)
             else:
-                print('\r','Training {:.2%}   '.format(1), end='', flush=True)
+                print('\r', f'Training {1:.2%}', end='', flush=True)
+            # TODO: loss
             total_loss += loss.item()*len(output)
             # if idx % TEST_INTERVAL == 0:
             #     if torch.cuda.is_available():
@@ -111,41 +107,61 @@ def train(model, train_data, train_target, test_data = None, test_target = None,
         train_accuracy = test(model, train_data.cuda(), train_target.cuda())[1]
         # val_accuracy = test(model, val_data.cuda(), val_target.cuda())[1]
         torch.cuda.empty_cache()
-        if test_data == None or test_target == None:
+        if test_data is None or test_target is None:
             test_accuracy = train_accuracy
         else:
-            _,test_accuracy,test_loss = test(model, test_data.cuda(), test_target.cuda())
+            _, test_accuracy, test_loss = test(model, test_data.cuda(),
+                                               test_target.cuda())
         # torch.cuda.empty_cache()
         val_accuracy = test_accuracy
         if test_accuracy > best_test:
             best_train = train_accuracy
             best_val = val_accuracy
             best_test = test_accuracy
-            best_state = [epoch + 1, idx + 1, running_loss, test_loss, best_train, best_val, best_test]
+            best_state = [epoch + 1, idx + 1, running_loss, test_loss,
+                          best_train, best_val, best_test]
             state_dict = deepcopy(model.state_dict())
-            
+
         loss_list.append(running_loss)
         test_loss_list.append(test_loss)
         train_acc_list.append(train_accuracy)
         test_acc_list.append(test_accuracy)
 
         if epoch == 0:
-            with open(os.path.join(save_dir, (model_name + '_train_log.txt')),'wt',encoding="utf-8") as f:
-                f.write('Epoch: {0:4}, Batch: {1:3} | Train Loss: {2:10.8f} | Val Loss: {3:10.8f} | Train: {4:.3%} | Val: {5:.3%} | Test: {6:.3%}'.
-                format(epoch + 1, idx + 1, running_loss, test_loss, train_accuracy, val_accuracy, test_accuracy))
+            with open(os.path.join(save_dir, (model_name + '_train_log.txt')),
+                      'wt', encoding="utf-8") as f:
+                f.write(f'Epoch: {epoch:4}, Batch: {idx:3} '
+                        f'| Train Loss: {running_loss:10.8f} '
+                        f'| Val Loss: {test_loss:10.8f} '
+                        f'| Train: {train_accuracy:.3%} '
+                        f'| Val: {val_accuracy:.3%} '
+                        f'| Test: {test_accuracy:.3%}')
                 f.write('\n')
         else:
-            with open(os.path.join(save_dir, (model_name + '_train_log.txt')),'a',encoding="utf-8") as f:
-                f.write('Epoch: {0:4}, Batch: {1:3} | Train Loss: {2:10.8f} | Val Loss: {3:10.8f} | Train: {4:.3%} | Val: {5:.3%} | Test: {6:.3%}'.
-                format(epoch + 1, idx + 1, running_loss, test_loss, train_accuracy, val_accuracy, test_accuracy))
+            with open(os.path.join(save_dir, (model_name + '_train_log.txt')),
+                      'a', encoding="utf-8") as f:
+                f.write(f'Epoch: {epoch:4}, Batch: {idx:3} '
+                        f'| Train Loss: {running_loss:10.8f} '
+                        f'| Val Loss: {test_loss:10.8f} '
+                        f'| Train: {train_accuracy:.3%} '
+                        f'| Val: {val_accuracy:.3%} '
+                        f'| Test: {test_accuracy:.3%}')
                 f.write('\n')
 
-        print('Epoch: {0:4}, Batch: {1:3} | Train Loss: {2:10.8f} | Val Loss: {3:10.8f}| Train: {4:.3%} | Val: {5:.3%} | Test: {6:.3%}'.
-            format(epoch + 1, idx + 1, running_loss, test_loss, train_accuracy, val_accuracy, test_accuracy))
+        print(f'Epoch: {epoch:4}, Batch: {idx:3} '
+              f'| Train Loss: {running_loss:10.8f} '
+              f'| Val Loss: {test_loss:10.8f} '
+              f'| Train: {train_accuracy:.3%} '
+              f'| Val: {val_accuracy:.3%} '
+              f'| Test: {test_accuracy:.3%}')
         torch.cuda.empty_cache()
 
-    metric_list = pd.DataFrame({'Train Loss':loss_list, 'Val Loss':test_loss_list, 'Train accuracy':train_acc_list,'Test accuracy':test_acc_list})
-    metric_list.to_csv(os.path.join(save_dir, (model_name + '_train_log.csv')),index=False,sep=',')
+    metric_list = pd.DataFrame({'Train Loss': loss_list,
+                                'Val Loss': test_loss_list,
+                                'Train accuracy': train_acc_list,
+                                'Test accuracy': test_acc_list})
+    metric_list.to_csv(os.path.join(save_dir, (model_name + '_train_log.csv')),
+                       index=False, sep=',')
     # Or antoher way
     # import csv
     # rows = zip(loss_list,train_acc_list,test_acc_list)
@@ -154,14 +170,16 @@ def train(model, train_data, train_target, test_data = None, test_target = None,
     #     csvr.writerow(['Loss','Train accuracy','Test accuracy'])
     #     for row in rows:
     #         csvr.writerow(row)
-    
-    plot_curves(train_acc_list, test_acc_list, loss_list, test_loss_list, save_dir=save_dir)
+
+    plot_curves(train_acc_list, test_acc_list, loss_list, test_loss_list,
+                save_dir=save_dir)
 
     model_dir = os.path.join(save_dir, (model_name + '.pkl'))
     torch.save(state_dict, model_dir)
     print('Best Results: ')
     print('Epoch: {:4}  Batch: {:3} | Train Loss: {:10.8f} | Val Loss: {:10.8f} | Train Accuracy: {:.3%} | Val Accuracy: {:.3%} | Test Accuracy: {:.3%}'.format(*best_state))
-    with open(os.path.join(save_dir, (model_name + '_train_log.txt')),'r+',encoding="utf-8") as f:
+    with open(os.path.join(save_dir, (model_name + '_train_log.txt')),
+              'r+', encoding="utf-8") as f:
         content = f.read()
         f.seek(0, 0)
         f.write('{:=^150s}'.format('Best Result')+'\n')
@@ -170,7 +188,8 @@ def train(model, train_data, train_target, test_data = None, test_target = None,
         f.write('{:=^150s}'.format('Training Log')+'\n')
         f.write(content)
 
-def test(model, data, target=None, batch_size = 5000):
+
+def test(model, data, target=None, batch_size=5000):
     """
     output is hard label
     """
@@ -186,7 +205,8 @@ def test(model, data, target=None, batch_size = 5000):
             output = model(data).cpu().data  # copy cuda tensor to host memory then convert to ndarray
     except:
         output = None
-        for idx, batch_data in enumerate(get_one_batch(data, batch_size=batch_size)):
+        for idx, batch_data in enumerate(get_one_batch(data,
+                                         batch_size=batch_size)):
 
             with torch.no_grad():
                 batch_output = model(batch_data[0]).cpu().data
@@ -199,15 +219,15 @@ def test(model, data, target=None, batch_size = 5000):
         loss = criterion(output, target.cpu()).item()
     pred = torch.max(output, dim=1)[1].numpy()
 
-
     accuracy = None
     if target is not None:
         target = target.cpu()
         accuracy = compute_accuracy(pred, target)
 
-    return pred, accuracy,loss
+    return pred, accuracy, loss
 
-def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
+
+def predict(model, feature_img, patch_size=13, target=None, batch_size=2000):
     """
     output is hard label
     """
@@ -218,7 +238,8 @@ def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
     model.eval()
     try:
         with torch.no_grad():
-            output = model(data).cpu().data  # copy cuda tensor to host memory then convert to ndarray
+            # copy cuda tensor to host memory then convert to ndarray
+            output = model(data).cpu().data
     except:
         output = None
         for idx, batch_data in enumerate(get_one_batch(data, batch_size)):
@@ -262,7 +283,9 @@ def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
 # feature_map[0,:,:] = HH
 # feature_map[1,:,:] = HV
 
-# train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, mask_dir ='D:\Github\IceNet')
+train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,
+                                  val_prop=VAL_PROP,
+                                  mask_dir='D:\\Github\\IceNet')
 # # train_mask, val_mask = get_masks_from_labeled_img(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, save_dir ='D:\Github\IceNet')
 
 
@@ -370,11 +393,103 @@ def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
 
 
 ############################################# Debug ############################################
+
+patch_size = 13
+to_tensor = True
+config = {
+    'input_shape': [1, 2, patch_size, patch_size],
+    'n_classes': 4,
+    'channels': 128,
+    'blocks': 3,
+    'is_bn': True,
+    'is_dropout': False,
+    'p': 0.2
+}
+
+root = "D:/Data/Resnet/Multi_folder"
+dirs = os.listdir(root)
+
+all_train_data = None
+all_train_target = None
+all_val_data = None
+all_val_target = None
+
+for idx, dir_name in enumerate(dirs):
+
+    hh_path = os.path.join(root, dir_name, 'imagery_HH4_by_4average.tif')
+    hv_path = os.path.join(root, dir_name, 'imagery_HV4_by_4average.tif')
+    labeld_img_path = os.path.join(root, dir_name, 'all_train_mask.png')
+    HH = cv2.imread(hh_path)[:, :, 0]
+    HV = cv2.imread(hv_path)[:, :, 0]
+    labeld_img = cv2.imread(labeld_img_path)[:, :, 0]
+    if HH.shape != HV.shape or HH.shape != labeld_img.shape:
+        print("Input images have different sizes!")
+        exit()
+
+    HH = HH/255
+    HV = HV/255
+
+    feature_map = np.zeros((2, HH.shape[0], HH.shape[1]),dtype=float)
+    feature_map[0, :, :] = HH
+    feature_map[1, :, :] = HV
+
+    train_mask, val_mask = load_masks(labeld_img,
+                                      train_prop=TRAIN_PROP,
+                                      val_prop=VAL_PROP,
+                                      mask_dir=os.path.join(root,dir_name))
+    train_data, train_target = get_patch_samples(feature_map,
+                                                 labeld_img,
+                                                 train_mask,
+                                                 patch_size=patch_size,
+                                                 to_tensor=False)
+    val_data, val_target = get_patch_samples(feature_map,
+                                             labeld_img,
+                                             val_mask,
+                                             patch_size=patch_size,
+                                             to_tensor=False)
+    # append or deep copy?
+    if idx == 0:
+        all_train_data = train_data
+        all_train_target = train_target
+        all_val_data = val_data
+        all_val_target = val_target
+    else:
+        all_train_data = np.concatenate((all_train_data, train_data), axis=0)
+        all_train_target = np.concatenate((all_train_target, train_target),
+                                          axis=0)
+        all_val_data = np.concatenate((all_val_data, val_data), axis=0)
+        all_val_target = np.concatenate((all_val_target, val_target), axis=0)
+        # Shuffle?
+
+state = np.random.get_state()
+np.random.shuffle(all_train_data)
+np.random.set_state(state)
+np.random.shuffle(all_train_target)
+
+all_train_data = torch.from_numpy(all_train_data).float()
+all_train_target = torch.from_numpy(all_train_target).long()
+
+all_val_data = torch.from_numpy(all_val_data).float()
+all_val_target = torch.from_numpy(all_val_target).long()
+
+# test_data = all_train_data
+# test_target = all_train_target
+
+# delete model?
+model = SSResNet.ResNet(config)
+train(model, all_train_data, all_train_target, all_val_data,
+      all_val_target, save_dir=os.path.join(root, dirs[0]))
+
+print("Done")
+
+
+
+############################################# ice-water ############################################
 # patch_size = 13
 # to_tensor = True
 # config = {
 #     'input_shape': [1, 2, patch_size, patch_size],
-#     'n_classes': 4,
+#     'n_classes': 2,
 #     'channels': 128,
 #     'blocks': 3,
 #     'is_bn': True,
@@ -382,7 +497,7 @@ def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
 #     'p': 0.2
 # }
 
-# root = "D:/Data/Resnet/Multi_folder"
+# root = "D:/Data/Resnet/ice-water"
 # dirs = os.listdir(root)
 
 # all_train_data = None
@@ -408,10 +523,11 @@ def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
 #     feature_map = np.zeros((2, HH.shape[0], HH.shape[1]),dtype=float)
 #     feature_map[0,:,:] = HH
 #     feature_map[1,:,:] = HV
-
-#     train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, mask_dir =os.path.join(root,dir_name))
+  
+#     train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, mask_dir = os.path.join(root,dir_name))
 #     train_data, train_target = get_patch_samples(feature_map, labeld_img, train_mask, patch_size=patch_size, to_tensor=False)
 #     val_data, val_target = get_patch_samples(feature_map, labeld_img, val_mask, patch_size=patch_size, to_tensor=False)
+    
 #     # append or deep copy?
 #     if idx == 0:
 #         all_train_data = train_data
@@ -423,7 +539,7 @@ def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
 #         all_train_target = np.concatenate((all_train_target, train_target), axis=0)
 #         all_val_data = np.concatenate((all_val_data, val_data), axis=0)
 #         all_val_target = np.concatenate((all_val_target, val_target), axis=0)
-#          # Shuffle?
+#         # Shuffle?
 
 # state = np.random.get_state()
 # np.random.shuffle(all_train_data)
@@ -432,97 +548,15 @@ def predict(model, feature_img, patch_size=13, target=None, batch_size = 2000):
 
 # all_train_data = torch.from_numpy(all_train_data).float()
 # all_train_target = torch.from_numpy(all_train_target).long()
-
 # all_val_data = torch.from_numpy(all_val_data).float()
 # all_val_target = torch.from_numpy(all_val_target).long()
+
 
 # # test_data = all_train_data
 # # test_target = all_train_target
 
 # # delete model?
 # model  = SSResNet.ResNet(config)
-# train(model, all_train_data, all_train_target, all_val_data, all_val_target,save_dir = os.path.dirname(root))
+# train(model, all_train_data, all_train_target, all_val_data, all_val_target, save_dir = os.path.join(root,dirs[0]))
 
 # print("Done")
-
-
-
-############################################# ice-water ############################################
-patch_size = 13
-to_tensor = True
-config = {
-    'input_shape': [1, 1, patch_size, patch_size],
-    'n_classes': 2,
-    'channels': 128,
-    'blocks': 3,
-    'is_bn': True,
-    'is_dropout': False,
-    'p': 0.2
-}
-
-root = "D:/Data/Resnet/ice-water"
-dirs = os.listdir(root)
-
-all_train_data = None
-all_train_target = None
-all_val_data = None
-all_val_target = None
-
-for idx, dir_name in enumerate(dirs):
-
-    hh_path = os.path.join(root,dir_name,'imagery_HH4_by_4average.tif')
-    hv_path = os.path.join(root,dir_name,'imagery_HV4_by_4average.tif')
-    labeld_img_path = os.path.join(root,dir_name,'all_train_mask.png')
-    HH = cv2.imread(hh_path)[:,:,0]
-    HV = cv2.imread(hv_path)[:,:,0]
-    labeld_img = cv2.imread(labeld_img_path)[:,:,0]
-    if HH.shape != HV.shape or HH.shape != labeld_img.shape:
-        print("Input images have different sizes!")
-        exit()
-
-    HH = HH/255
-    HV = HV/255
-
-    # feature_map = np.zeros((2, HH.shape[0], HH.shape[1]),dtype=float)
-    # feature_map[0,:,:] = HH
-    # feature_map[1,:,:] = HV
-
-    feature_map = np.zeros((1, HH.shape[0], HH.shape[1]),dtype=float)
-    feature_map[0,:,:] = HV
-  
-    train_mask, val_mask = load_masks(labeld_img,train_prop=TRAIN_PROP,val_prop=VAL_PROP, mask_dir = os.path.join(root,dir_name))
-    train_data, train_target = get_patch_samples(feature_map, labeld_img, train_mask, patch_size=patch_size, to_tensor=False)
-    val_data, val_target = get_patch_samples(feature_map, labeld_img, val_mask, patch_size=patch_size, to_tensor=False)
-    
-    # append or deep copy?
-    if idx == 0:
-        all_train_data = train_data
-        all_train_target = train_target
-        all_val_data = val_data
-        all_val_target = val_target
-    else:
-        all_train_data = np.concatenate((all_train_data, train_data), axis=0)
-        all_train_target = np.concatenate((all_train_target, train_target), axis=0)
-        all_val_data = np.concatenate((all_val_data, val_data), axis=0)
-        all_val_target = np.concatenate((all_val_target, val_target), axis=0)
-        # Shuffle?
-
-state = np.random.get_state()
-np.random.shuffle(all_train_data)
-np.random.set_state(state)
-np.random.shuffle(all_train_target)
-
-all_train_data = torch.from_numpy(all_train_data).float()
-all_train_target = torch.from_numpy(all_train_target).long()
-all_val_data = torch.from_numpy(all_val_data).float()
-all_val_target = torch.from_numpy(all_val_target).long()
-
-
-# test_data = all_train_data
-# test_target = all_train_target
-
-# delete model?
-model  = SSResNet.ResNet(config)
-train(model, all_train_data, all_train_target, all_val_data, all_val_target, save_dir = os.path.join(root,dirs[0]))
-
-print("Done")

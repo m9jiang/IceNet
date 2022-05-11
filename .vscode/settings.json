@@ -1,3 +1,5 @@
 {
-    "python.pythonPath": "C:\\Users\\m9jiang\\anaconda3\\envs\\python36\\python.exe"
+    "python.pythonPath": "C:\\Users\\m9jiang\\anaconda3\\envs\\python36\\python.exe",
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true
 }
