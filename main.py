@@ -1,6 +1,7 @@
 import numpy as np
 from copy import deepcopy
-from utils import *
+from utils import (get_one_batch, plot_curves, compute_accuracy,
+                   read_img_as_patches, load_masks, get_patch_samples)
 import cv2
 import torch
 from torch import nn, optim
