@@ -52,7 +52,7 @@ def color_label_ice_water(grey_label, landmask=None):
     Parameters
     ----------
     grey_label : grey-level labeled ice map
-        0: background 
+        0: background
         1: ice
         2: open water
     landmask : 0: land
@@ -126,17 +126,16 @@ def relabel_train_val_from_sip(dir):
     yong_RGB = np.array([128, 0, 128])
     first_year_RGB = np.array([255, 255, 0])
     multi_year_RGB = np.array([255, 0, 0])
-    water_RGB = np.array([0, 0, 255])   
-    
+    water_RGB = np.array([0, 0, 255])
+
     labeled_img1 = cv2.imread(os.path.join(dir, 'train_mask.png'))
     labeled_img1 = cv2.cvtColor(labeled_img1, cv2.COLOR_BGR2RGB)
 
     labeled_img2 = cv2.imread(os.path.join(dir, 'val_mask.png'))
     labeled_img2 = cv2.cvtColor(labeled_img2, cv2.COLOR_BGR2RGB)
 
-
-
-    # another way to do it https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow
+    # another way to do it 
+    # https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow  # noqa: E501
     idx_y1 = np.where(np.all(labeled_img1 == yong_RGB, axis=-1))
     idx_f1 = np.where(np.all(labeled_img1 == first_year_RGB, axis=-1))
     idx_m1 = np.where(np.all(labeled_img1 == multi_year_RGB, axis=-1))
@@ -173,7 +172,8 @@ def relabel_train_val_from_sip_ice_water(dir, overwrite=False):
     labeled_img = cv2.imread(os.path.join(dir, 'test_mask.png'))
     labeled_img = cv2.cvtColor(labeled_img, cv2.COLOR_BGR2RGB)
 
-    # another way to do it https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow
+    # another way to do it 
+    # https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow  # noqa: E501
     idx_ice = np.where(np.all(labeled_img == ice_RGB, axis=-1))
     idx_water = np.where(np.all(labeled_img == water_RGB, axis=-1))
 
@@ -198,7 +198,7 @@ def get_data_from_labeled_img(labeled_img):
     x_list = []
     y_list = []
     class_list = np.unique(labeled_img)
-    if class_list[0] == 0: # unknown: 0
+    if class_list[0] == 0:  # unknown: 0
         class_list = class_list[1:]
     n_class = class_list.size
     for i in range(n_class):
@@ -213,7 +213,7 @@ def get_data_from_labeled_img(labeled_img):
     np.random.shuffle(y_list)
     np.random.set_state(state)
     np.random.shuffle(target)
-    
+
     # csv_headers = ['Label','Row (Starts from 0)','Col (Starts from 0)']
     # f = open('test.csv','w',encoding='utf-8',newline='')
     # csv_writer = csv.writer(f)
@@ -311,9 +311,12 @@ def get_patch_samples(data, target, mask, patch_size=13, to_tensor=True):
         sys.exit()
     # padding data
     pad_size = patch_size // 2
-    data = np.pad(data, ((0, 0), (pad_size, pad_size), (pad_size, pad_size)), 'constant')
-    target = np.pad(target, ((pad_size, pad_size), (pad_size, pad_size)), 'constant')
-    mask = np.pad(mask, ((pad_size, pad_size), (pad_size, pad_size)), 'constant')
+    data = np.pad(data, ((0, 0), (pad_size, pad_size),(pad_size, pad_size)),
+                  'constant')
+    target = np.pad(target, ((pad_size, pad_size), (pad_size, pad_size)),
+                    'constant')
+    mask = np.pad(mask, ((pad_size, pad_size), (pad_size, pad_size)),
+                  'constant')
 
     # # get patches
     # patch_target = target * mask
@@ -329,7 +332,8 @@ def get_patch_samples(data, target, mask, patch_size=13, to_tensor=True):
     target = target - 1
     index = np.argwhere(mask == 1)
     patch_target = np.zeros((index.shape[0]))
-    patch_data = np.zeros((index.shape[0], data.shape[0], patch_size, patch_size))
+    patch_data = np.zeros((index.shape[0], data.shape[0], patch_size,
+                           patch_size))
     # print("Number of samples is {}".format(index.shape[0]))
 
     for i, loc in enumerate(index):

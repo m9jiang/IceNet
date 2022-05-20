@@ -1,13 +1,13 @@
 import numpy as np
 from copy import deepcopy
-from utils import (get_one_batch, plot_curves, compute_accuracy,
-                   read_img_as_patches, load_masks, get_patch_samples)
 import cv2
 import torch
 from torch import nn, optim
 from models import SSResNet
 import pandas as pd
 import os
+from utils import (get_one_batch, plot_curves, compute_accuracy,
+                   read_img_as_patches, load_masks, get_patch_samples)
 # from models import basic_cnn
 
 # TODO: Add Tensorboard and Logger
@@ -20,29 +20,24 @@ else:
     print("CUDA is unavailable!")
 
 
-############################## set hyper-parameters ##########################
-
-TRAIN_PROP = 0.8    # 0.8
-VAL_PROP = 0.2      # 0.2
-BATCH_SIZE = 5000   # 5000
 PATCH_SIZE = 13
-EPOCH = 100
-LR = 0.0001
-TEST_INTERVAL = 1
 # 'bpnet', 'basic_cnn', 'resnet', 'dip_resnet'
-NET_TYPE = 'ResNet'
 # 'patch'(resnet, cnn), 'vector'(bp), 'full_image'(dip_resnet)
 # DATA_TYPE = 'patch'
 
 
-def train(model, train_data, train_target, test_data=None,
-          test_target=None, save_dir=None):
+def train(model,
+          train_data, train_target,
+          val_data=None, val_target=None,
+          test_data=None, test_target=None,
+          batch_size=5000, n_epoch=100, lr=1e-4,
+          train_prop=0.6, val_prop=0.2, test_prop=0.2,
+          save_dir=None):
 
-    global LR, EPOCH, BATCH_SIZE, NET_TYPE, TEST_INTERVAL
     if torch.cuda.is_available():
         model = model.cuda()
     criterion = nn.CrossEntropyLoss()  # loss function: cross entropy
-    optimizer = optim.Adam(model.parameters(), lr=LR)  # optimizer: adam
+    optimizer = optim.Adam(model.parameters(), lr=lr)  # optimizer: adam
     loss_list = []
     test_loss_list = []
     test_acc_list = []
@@ -54,19 +49,18 @@ def train(model, train_data, train_target, test_data=None,
         save_dir = './Debug_model'
     else:
         save_dir = os.path.join(save_dir, 'Debug_encoder')
-    model_name = (NET_TYPE + '_batch_' + str(BATCH_SIZE) + '_epoch_' +
-                  str(EPOCH))
+    model_name = (f'{model.name}_batch_{batch_size}_epoch_{n_epoch}')
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     state_dict = None
     best_state = None
-    test_accuracy = None
-    for epoch in range(EPOCH):
+    test_accuracy = 0
+    for epoch in range(n_epoch):
         model.train()
         # would it be better to shuffle data each epoch?
         total_loss = 0
         for idx, samples in enumerate(get_one_batch(train_data, train_target,
-                                      BATCH_SIZE)):
+                                      batch_size)):
             data = samples[0]
             target = samples[1]
             output = model(data)
@@ -74,8 +68,7 @@ def train(model, train_data, train_target, test_data=None,
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            batch_prop = (idx + 1)*BATCH_SIZE/len(train_data)
-            # print('Training: Epoch: {0:5}, Batch: {1:3}, Batch rate: {2:.2%}'.format(epoch + 1, idx + 1, batch_prop))
+            batch_prop = (idx + 1)*batch_size/len(train_data)
             if batch_prop < 1:
                 print('\r', f'Training {batch_prop:.2%}', end='',
                       flush=True)
@@ -83,28 +76,8 @@ def train(model, train_data, train_target, test_data=None,
                 print('\r', f'Training {1:.2%}', end='', flush=True)
             # TODO: loss
             total_loss += loss.item()*len(output)
-            # if idx % TEST_INTERVAL == 0:
-            #     if torch.cuda.is_available():
-            #         train_accuracy = test(model, train_data.cuda(), train_target.cuda())[1]
-            #         val_accuracy = test(model, val_data.cuda(), val_target.cuda())[1]
-            #         test_accuracy = test(model, test_data.cuda(), test_target.cuda())[1]
-            #     else:
-            #         train_accuracy = test(model, train_data, train_target)[1]
-            #         val_accuracy = test(model, val_data, val_target)[1]
-            #         test_accuracy = test(model, test_data, test_target)[1]
-            #     torch.cuda.empty_cache()
-            #     print('Epoch: {0:5}, Batch: {1:3} | Loss: {2:10.8f} | Train: {3:.6f}　| Val: {4:.6f} | Test: {5:.6f}'.
-            #           format(epoch + 1, idx + 1, loss.item(), train_accuracy, val_accuracy, test_accuracy),
-            #           '\r', end='')
-            #     if test_accuracy > best_test:
-            #         best_train = train_accuracy
-            #         best_val = val_accuracy
-            #         best_test = test_accuracy
-            #         best_state = [epoch + 1, idx + 1, loss, best_train, best_val, best_test]
-            #         state_dict = deepcopy(model.state_dict())
         running_loss = total_loss/len(train_target)
         torch.cuda.empty_cache()
-        # model.eval()
         train_accuracy = test(model, train_data.cuda(), train_target.cuda())[1]
         # val_accuracy = test(model, val_data.cuda(), val_target.cuda())[1]
         torch.cuda.empty_cache()

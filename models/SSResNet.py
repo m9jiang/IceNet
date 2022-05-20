@@ -3,9 +3,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from torchsummary import summary
-import pdb
-from utils import *
 
 
 def initialize_weights(module):
@@ -21,7 +18,8 @@ def initialize_weights(module):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, in_channels, out_channels, stride, is_bn, is_dropout, p):
+    def __init__(self, in_channels, out_channels,
+                 stride, is_bn, is_dropout, p):
         super(BasicBlock, self).__init__()
 
         bn1 = None
@@ -97,7 +95,8 @@ class BasicBlock(nn.Module):
 #         if norm_layer is None:
 #             norm_layer = nn.BatchNorm2d
 #         width = int(planes * (base_width / 64.)) * groups
-#         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
+#         # Both self.conv2 and self.downsample layers downsample the input
+#         # when stride != 1
 #         self.conv1 = conv1x1(inplanes, width)
 #         self.bn1 = norm_layer(width)
 #         self.conv2 = conv3x3(width, width, stride, groups, dilation)
@@ -130,23 +129,21 @@ class BasicBlock(nn.Module):
 
 #         return out
 
+
 class ResNet(nn.Module):
     def __init__(self, config):
         super(ResNet, self).__init__()
-
         input_shape = config['input_shape']
         n_classes = config['n_classes']
-
-        # base_channels = config['base_channels']
-        # block_type = config['block_type']
-        # depth = config['depth']
-
         channels = config['channels']
         blocks = config['blocks']
         is_bn = config['is_bn']
         is_dropout = config['is_dropout']
         p = config['p']
 
+        # base_channels = config['base_channels']
+        # block_type = config['block_type']
+        # depth = config['depth']
         # assert block_type in ['basic', 'bottleneck']
         # if block_type == 'basic':
         #     block = BasicBlock
@@ -163,8 +160,6 @@ class ResNet(nn.Module):
         #     base_channels * 4 * block.expansion
         # ]
 
-        #pdb.set_trace()
-
         self.conv = nn.Conv2d(
             input_shape[1],
             channels,
@@ -176,16 +171,17 @@ class ResNet(nn.Module):
         self.bn = nn.BatchNorm2d(channels)
 
         # self.stage1 = self._make_stage(
-        #     channels[0], channels[0], blocks[0], BasicBlock, stride=1, is_bn=is_bn,
-        #     is_dropout=is_dropout, p=p)
+        #     channels[0], channels[0], blocks[0], BasicBlock, stride=1,
+        #     is_bn=is_bn, s_dropout=is_dropout, p=p)
         # self.stage2 = self._make_stage(
-        #     channels[0], channels[1], blocks[1], BasicBlock, stride=2, is_bn=is_bn,
-        #     is_dropout=is_dropout, p=p)
+        #     channels[0], channels[1], blocks[1], BasicBlock, stride=2,
+        #     is_bn=is_bn, is_dropout=is_dropout, p=p)
         # self.stage3 = self._make_stage(
-        #     channels[1], channels[2], blocks[2], BasicBlock, stride=2, is_bn=is_bn,
-        #     is_dropout=is_dropout, p=p)
+        #     channels[1], channels[2], blocks[2], BasicBlock, stride=2,
+        #     is_bn=is_bn, is_dropout=is_dropout, p=p)
 
-        self.blocks = self._make_stage(channels, channels, blocks, BasicBlock, stride=1, is_bn=is_bn,
+        self.blocks = self._make_stage(channels, channels, blocks, BasicBlock,
+                                       stride=1, is_bn=is_bn,
                                        is_dropout=is_dropout, p=p)
 
         # compute conv feature size
@@ -224,7 +220,6 @@ class ResNet(nn.Module):
 
     def _forward_conv(self, x):
         # x = F.relu(self.bn(self.conv(x)), inplace=True)
-        #pdb.set_trace()
         x = F.leaky_relu(self.bn(self.conv(x)), 0.2, inplace=True)
         # x = self.stage1(x)
         # x = self.stage2(x)
@@ -238,6 +233,10 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
         return x
+
+    @property
+    def name(self) -> str:
+        return 'ResNet'
 
 
 # if __name__ == '__main__':
@@ -255,6 +254,3 @@ class ResNet(nn.Module):
     # xx = torch.ones([1, 200, 7, 7])
     # yy = net(xx)
     # summary(net, (200, 7, 7))
-
-    # pdb.set_trace()
-
