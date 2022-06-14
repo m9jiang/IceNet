@@ -1,2 +1,5 @@
 # VSCode settings
 .vscode/
+__pycache__/
+
+data/

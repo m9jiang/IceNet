@@ -1,0 +1,17 @@
+model:
+  input_shape: 
+    - 1
+    - 2
+    # patch size
+    - 13
+    - 13
+  n_classes: 4
+  channels: 128
+  blocks: 3
+  is_bn: true
+  is_dropout: false
+  p: 0.2
+trainer:
+  train_prop: 1
+  val_prop: 0
+  gpu_idx: 0

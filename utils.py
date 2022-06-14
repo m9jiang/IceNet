@@ -1,11 +1,21 @@
 import os
 import sys
+import yaml
 import numpy as np
 import torch
 import cv2
 import scipy.io as sio
 from PIL import Image
 import matplotlib.pyplot as plt
+from typing import Any, Dict
+
+
+def read_yaml(path: str) -> Dict[str, Any]:
+    with open(path, "r") as stream:
+        try:
+            return yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
 
 
 def color_label(grey_label, landmask=None):
@@ -172,7 +182,7 @@ def relabel_train_val_from_sip_ice_water(dir, overwrite=False):
     labeled_img = cv2.imread(os.path.join(dir, 'test_mask.png'))
     labeled_img = cv2.cvtColor(labeled_img, cv2.COLOR_BGR2RGB)
 
-    # another way to do it 
+    # another way to do it
     # https://stackoverflow.com/questions/33196130/replacing-rgb-values-in-numpy-array-by-integer-is-extremely-slow  # noqa: E501
     idx_ice = np.where(np.all(labeled_img == ice_RGB, axis=-1))
     idx_water = np.where(np.all(labeled_img == water_RGB, axis=-1))
@@ -254,7 +264,7 @@ def get_masks_from_labeled_img(labeled_img, train_prop=1,
 
     if save_dir:
         # Or save masks as images
-        folder_name = 'train_' + str(train_prop) + '_val_' + str(val_prop)
+        folder_name = f'train_{train_prop}_val_{val_prop}'
         save_dir = os.path.join(save_dir, folder_name)
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
@@ -279,8 +289,7 @@ def get_masks_from_labeled_img(labeled_img, train_prop=1,
 
 
 def load_masks(labeled_img, mask_dir, train_prop=1, val_prop=0):
-    mask_fname = os.path.join(mask_dir, 'train_' + str(train_prop)
-                              + '_val_' + str(val_prop))
+    mask_fname = os.path.join(mask_dir, f'train_{train_prop}_val_{val_prop}')
     if not (os.path.exists(mask_fname) and os.listdir(mask_fname)):
         # train_mask, val_mask, test_mask = get_masks(target,
         #                                             train_prop,
@@ -383,7 +392,7 @@ def compute_accuracy(pred, target):
 
 def read_img_as_patches(feature_img, patch_size, to_tensor=True):
     """
-    feature_img is a 3D array -- first dimension contains different image bands 
+    feature_img is a 3D array -- first dimension contains different image bands
 
     Read whole image as patches
     """
@@ -400,9 +409,13 @@ def read_img_as_patches(feature_img, patch_size, to_tensor=True):
         sys.exit()
     pad_size = patch_size//2
     mask = np.ones((feature_img.shape[1], feature_img.shape[2]))
-    patch_data = np.zeros((feature_img.shape[1] * feature_img.shape[2], feature_img.shape[0], patch_size, patch_size))
-    feature_img = np.pad(feature_img, ((0, 0), (pad_size,pad_size), (pad_size,pad_size)), 'constant')
-    mask = np.pad(mask, ((pad_size, pad_size), (pad_size, pad_size)), 'constant')
+    patch_data = np.zeros((feature_img.shape[1] * feature_img.shape[2],
+                           feature_img.shape[0], patch_size, patch_size))
+    feature_img = np.pad(feature_img,
+                         ((0, 0), (pad_size, pad_size), (pad_size, pad_size)),
+                         'constant')
+    mask = np.pad(mask, ((pad_size, pad_size), (pad_size, pad_size)),
+                  'constant')
     index = np.argwhere(mask)
     for i, loc in enumerate(index):
         patch_data[i, :, :, :] = feature_img[:, loc[0] - pad_size:loc[0] + pad_size + 1, loc[1] - pad_size:loc[1] + pad_size + 1]
@@ -424,7 +437,10 @@ def read_img_as_patches(feature_img, patch_size, to_tensor=True):
     return patch_data
 
 
-def plot_curves(train_accuracy, test_accuracy, loss, test_loss=None, save_dir=None):
+def plot_curves(train_accuracy,
+                test_accuracy,
+                loss, test_loss=None,
+                save_dir=None):
     f, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 20))
     ax1.set_title('Train/Val Loss', fontsize='x-large')
     ax2.set_title('Train and Test Accuracies', fontsize='x-large')
