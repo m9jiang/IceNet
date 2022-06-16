@@ -1,0 +1,33 @@
+import argparse
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from xml.dom import minidom
+
+
+def main(root: str, out: str, nfr: bool) -> None:
+    dirs = os.listdir(dir)
+    s_dirs = [dir.split('_')[1] for dir in dirs]
+    print('Done')
+
+    # beta_cal_gains = minidom.parse("20101027_025726_HH/lutBeta.xml").getElementsByTagName('gains')
+    # bgains = np.array([float(v) for v in beta_cal_gains[0].firstChild.nodeValue.split(' ')])
+    # incidence_angle = np.arcsin(bgains/gains)*180/np.pi
+    # plt.plot(incidence_angle)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=('Generate incidence '
+                                                  'angle map.'))
+    parser.add_argument('-r', '--root', type=str, dest='root',
+                        default=('D:\\Data\\For_Max'),
+                        help='Root directory of dataset')
+    parser.add_argument('-o', '--out', type=str, dest='out',
+                        default=('D:\\Data\\Resnet\\Multi_folder-2022'),
+                        help='Directory of output')
+    parser.add_argument('-b', action='store_true',
+                        help='boolean for generateing near/far-range map')
+
+    args = parser.parse_args()
+
+    main(root=args.root, out=args.out, nfr=args.b)

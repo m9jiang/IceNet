@@ -1,4 +1,3 @@
-from functools import singledispatch
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0, 1, 2'
 import numpy as np  # noqa: E402
@@ -143,8 +142,7 @@ def main(root: str, config_path: str, model_path: str) -> None:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=('Train a featuer extractor '
-                                                  '(encoder).'))
+    parser = argparse.ArgumentParser(description=('Predict sea-ice maps.'))
     parser.add_argument('-c', '--config', type=str, dest='config',
                         default='config/predict.yaml',
                         help='Path to the config file (.yaml)')
