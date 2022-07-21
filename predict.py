@@ -4,6 +4,7 @@ import numpy as np  # noqa: E402
 import cv2  # noqa: E402
 import torch  # noqa: E402
 from torch import nn  # noqa: E402
+from torchvision import models  # noqa: E402
 from utils import (read_yaml, get_one_batch, read_img_as_patches,  # noqa: E402
                    color_label)  # noqa: E402
 from models import SSResNet  # noqa: E402
@@ -12,6 +13,16 @@ from copy import deepcopy  # noqa: E402
 import time  # noqa: E402
 import math  # noqa: E402
 import argparse  # noqa: E402
+import gc  # noqa: E402
+
+
+def release_cuda(var: torch.Tensor) -> None:
+    var.cpu()
+    del var
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    return
 
 
 def test(model, data, target=None, batch_size=8192):
@@ -37,6 +48,8 @@ def test(model, data, target=None, batch_size=8192):
             else:
                 output = torch.cat((output, batch_output), dim=0)
     pred = torch.max(output, dim=1)[1].numpy()
+    release_cuda(output)
+    # release_cuda(data)
 
     return pred
 
@@ -48,6 +61,8 @@ def main(root: str, config_path: str, model_path: str) -> None:
     img_split_ratio = config['img_split_ratio']
     dirs = os.listdir(root)
     dirs.sort()
+    if 'results' in dirs:
+        dirs.remove('results')
 
     for idx, dir_name in enumerate(dirs):
         hh_path = os.path.join(root, dir_name, 'imagery_HH4_by_4average.tif')
@@ -67,8 +82,12 @@ def main(root: str, config_path: str, model_path: str) -> None:
         feature_map[0, :, :] = hh
         feature_map[1, :, :] = hv
         model = SSResNet.ResNet(config['model'])
+        model = models.resnet50(num_classes=config['model']['n_classes'])
+        model.conv1 = torch.nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        # model.conv1 = torch.nn.Conv2d(2, 64, kernel_size=7, stride=2, padding=3, bias=False)
         model = nn.DataParallel(model, device_ids=[0, 1, 2])
         model.load_state_dict(torch.load(model_path))
+        model.eval()
 
         # process whole image by patches due to GUP RAM consumption
         split_size_0 = math.ceil(hh.shape[0]/img_split_ratio)
@@ -98,12 +117,16 @@ def main(root: str, config_path: str, model_path: str) -> None:
                 i = x*img_split_ratio + y
                 start = time.time()
                 patch_data = read_img_as_patches(img_patch[i], patch_size)
+                patch_data.detach()
                 end = time.time()
                 m, s = divmod(end - start, 60)
                 h, m = divmod(m, 60)
                 print(f'Loading Scene {idx:2}, patch {i:2}. Runtime {h:.0f}:{m:.0f}:{s:.0f}.')
                 start = time.time()
-                pred_split = test(model, patch_data, batch_size=8192)
+                pred_split = test(model, patch_data, batch_size=3000)
+                patch_data = patch_data.cpu()
+                del patch_data
+                gc.collect()
                 torch.cuda.empty_cache()
                 end = time.time()
                 m, s = divmod(end - start, 60)
@@ -114,7 +137,7 @@ def main(root: str, config_path: str, model_path: str) -> None:
                 # map_split = map_split*landmask
                 # map_split_color = color_label(map_split, landmask=None)
                 # map_split_color_img = Image.fromarray(map_split_color)
-                map_split_color_img.save(os.path.join(root,dir_name, 'ResNet_Debug_patch_{}.tif'.format(i)))
+                # map_split_color_img.save(os.path.join(root,dir_name, 'ResNet_Debug_patch_{}.tif'.format(i)))
                 if x == img_split_ratio - 1 and y != img_split_ratio - 1:
                     map[x*split_size_0:(x+1)*split_size_0-split_size_0_pad_size, y*split_size_1:(y+1)*split_size_1] = \
                         map_split[pad_size:pad_size+split_size_0-split_size_0_pad_size, pad_size:pad_size+split_size_1]
@@ -135,10 +158,10 @@ def main(root: str, config_path: str, model_path: str) -> None:
 
         map_img = Image.fromarray(map).convert('RGB')
         map_img.save(os.path.join(root, dir_name,
-                                  f'ResNet_patch_{patch_size}.png'))
+                                  f'ResNet50_kernel_3_patch_{patch_size}.png'))
         map_color_img = Image.fromarray(map_color)
         map_color_img.save(os.path.join(root, dir_name,
-                           f'ResNet_patch_{patch_size}_color.png'))
+                           f'ResNet50_kernel_3patch_{patch_size}_color.png'))
 
 
 if __name__ == '__main__':
@@ -153,8 +176,8 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model', type=str, dest='model',
                         default=('/home/major/data/21-scene/resnet/'
                                  'multi_folder-2022/results/'
-                                 'debug_encoder-2022-06-01-15-16/'
-                                 'ResNet_batch_16384_epoch_500.pkl'),
+                                 'debug_encoder_resnet50_kernel_3_patch_25_2022-07-18-20-11/'
+                                 'ResNet50_batch_5000_epoch_300.pkl'),
                         help='directory of model')
     args = parser.parse_args()
     if torch.cuda.is_available():
