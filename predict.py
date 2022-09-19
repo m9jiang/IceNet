@@ -82,8 +82,8 @@ def main(root: str, config_path: str, model_path: str) -> None:
         feature_map[0, :, :] = hh
         feature_map[1, :, :] = hv
         model = SSResNet.ResNet(config['model'])
-        model = models.resnet50(num_classes=config['model']['n_classes'])
-        model.conv1 = torch.nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        # model = models.resnet50(num_classes=config['model']['n_classes'])
+        # model.conv1 = torch.nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1, bias=False)
         # model.conv1 = torch.nn.Conv2d(2, 64, kernel_size=7, stride=2, padding=3, bias=False)
         model = nn.DataParallel(model, device_ids=[0, 1, 2])
         model.load_state_dict(torch.load(model_path))
@@ -158,10 +158,10 @@ def main(root: str, config_path: str, model_path: str) -> None:
 
         map_img = Image.fromarray(map).convert('RGB')
         map_img.save(os.path.join(root, dir_name,
-                                  f'ResNet50_kernel_3_patch_{patch_size}.png'))
+                                  f'ResNet_patch_{patch_size}.png'))
         map_color_img = Image.fromarray(map_color)
         map_color_img.save(os.path.join(root, dir_name,
-                           f'ResNet50_kernel_3patch_{patch_size}_color.png'))
+                           f'ResNet_patch_{patch_size}_color.png'))
 
 
 if __name__ == '__main__':
@@ -176,8 +176,8 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model', type=str, dest='model',
                         default=('/home/major/data/21-scene/resnet/'
                                  'multi_folder-2022/results/'
-                                 'debug_encoder_resnet50_kernel_3_patch_25_2022-07-18-20-11/'
-                                 'ResNet50_batch_5000_epoch_300.pkl'),
+                                 'debug_encoder_resnet_kernel_3_patch_25_2022-07-20-23-25/'
+                                 'ResNet_batch_4000_epoch_300.pkl'),
                         help='directory of model')
     args = parser.parse_args()
     if torch.cuda.is_available():

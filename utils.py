@@ -424,7 +424,7 @@ def read_img_as_patches(feature_img, patch_size, to_tensor=True):
         #     print('\r','Loading image {:.2%}   '.format(loading_rate), end='', flush=True)
         # else:
         #     print('\r','Loading image {:.2%}   '.format(1), end='', flush=True)
-    
+
     # end = time.time()
     # m, s = divmod(end - start, 60)
     # h, m = divmod(m, 60)
@@ -432,7 +432,7 @@ def read_img_as_patches(feature_img, patch_size, to_tensor=True):
     if to_tensor:
         patch_data = torch.from_numpy(patch_data).float()
         if torch.cuda.is_available():
-            patch_data = patch_data.cuda()
+            patch_data = patch_data.cuda().detach()
 
     return patch_data
 

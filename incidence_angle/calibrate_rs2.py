@@ -1,16 +1,15 @@
 import argparse
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 from xml.dom import minidom
 import tifffile
+
 
 def main(root: str, out: str, nfr: bool) -> None:
     out_dirs = os.listdir(out)
     if 'results' in out_dirs:
         out_dirs.remove('results')
     dirs = [dir.split('_')[0] for dir in out_dirs]
-    left_near = []
     for i, scene in enumerate(zip(dirs, out_dirs)):
         print(f'Processing Scene {i}')
         HH_root = os.path.join(root, scene[0], scene[1] + '_HH')
@@ -30,23 +29,23 @@ def main(root: str, out: str, nfr: bool) -> None:
         HV_gains = np.array([float(v) for v in HV_sigma_cal_gains[0].firstChild.nodeValue.split(' ')])
         HV_offset = float(HV_sigma_cal_offset[0].firstChild.nodeValue)
         # obtain the calibrated backscatter values in absolute units
-        hh = (HH_raw**2 + offset)/gains
-        hv = (HV_raw**2 + offset)/gains
+        hh = (HH_raw**2 + HH_offset)/HH_gains
+        hv = (HV_raw**2 + HV_offset)/HV_gains
 
         # SAR data is usually transformed to the log domain (dB) for analysis. 
         # specify cutoff sigma_0 values for mapping pixel values to the range (0,1)
-        SIGMA_MIN_HH_DB = -35 # dB
-        SIGMA_MAX_HH_DB = 0   # dB
-        SIGMA_MIN_HV_DB = -35 # dB
-        SIGMA_MAX_HV_DB = 0   # dB
+        SIGMA_MIN_HH_DB = -35  # dB
+        SIGMA_MAX_HH_DB = 0    # dB
+        SIGMA_MIN_HV_DB = -35  # dB
+        SIGMA_MAX_HV_DB = 0    # dB
         max_thresh = 10**(SIGMA_MAX_HH_DB/10)
         min_thresh = 10**(SIGMA_MIN_HH_DB/10)
 
-        hh[hh>max_thresh]=max_thresh
-        hh[hh<min_thresh]=min_thresh
+        hh[hh > max_thresh] = max_thresh
+        hh[hh < min_thresh] = min_thresh
 
-        hv[hv>max_thresh]=max_thresh
-        hv[hv<min_thresh]=min_thresh
+        hv[hv > max_thresh] = max_thresh
+        hv[hv < min_thresh] = min_thresh
         # truncate the values outside the selected range and map to [0,1]
         hh_sigma_0 = (10*np.log10(hh) - SIGMA_MIN_HH_DB)/(SIGMA_MAX_HH_DB-SIGMA_MIN_HH_DB)
         hv_sigma_0 = (10*np.log10(hv) - SIGMA_MIN_HV_DB)/(SIGMA_MAX_HV_DB-SIGMA_MIN_HV_DB)

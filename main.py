@@ -15,7 +15,7 @@ from utils import (get_one_batch, plot_curves, compute_accuracy,
 # DATA_TYPE = 'patch'
 
 
-def train(model,
+def train(model, patch_size,
           train_data, train_target,
           val_data=None, val_target=None,
           test_data=None, test_target=None,
@@ -40,7 +40,9 @@ def train(model,
     if save_dir is None:
         save_dir = './Debug_model'
     else:
-        save_dir = os.path.join(save_dir, 'results', f'debug_encoder-{dt}')
+        save_dir = os.path.join(
+            save_dir, 'results',
+            f'debug_encoder_resnet_kernel_3_patch_{patch_size}_{dt}')
     model_name = (f'{model.module.name}_batch_{batch_size}_epoch_{n_epoch}')
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)

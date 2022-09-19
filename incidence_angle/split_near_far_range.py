@@ -6,9 +6,12 @@ from xml.dom import minidom
 
 
 def main(root: str, out: str, nfr: bool) -> None:
-    our_dirs = os.listdir(out)
-    dirs = [dir.split('_')[0] for dir in our_dirs]
-    for scene in zip(dirs, our_dirs):
+    out_dirs = os.listdir(out)
+    if 'results' in out_dirs:
+        out_dirs.remove('results')
+    dirs = [dir.split('_')[0] for dir in out_dirs]
+    left_near = []
+    for scene in zip(dirs, out_dirs):
         # use beta_0 to sigma_0 ratio to get the incidence angle
         sigma_cal_gains = minidom.parse(
             os.path.join(root, scene[0], scene[1] + '_HH', 'lutSigma.xml')
@@ -24,6 +27,14 @@ def main(root: str, out: str, nfr: bool) -> None:
         )
         incidence_angle = np.arcsin(bgains/gains)*180/np.pi
         plt.plot(incidence_angle)
+        plt.xlabel('Range Direction')
+        plt.ylabel('Incidence Angle')
+        if nfr:
+            plt.savefig(f'{out}/{scene[1]}incifence_angle.png')
+        if incidence_angle[0] < incidence_angle[-1]:
+            left_near.append(1)  #left is near range
+        else:
+            left_near.append(0)  #right is near range
     print('Done')
 
 
@@ -31,10 +42,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=('Generate incidence '
                                                   'angle map.'))
     parser.add_argument('-r', '--root', type=str, dest='root',
-                        default=('D:\\Data\\For_Max'),
+                        default=('/home/major/data/61-scene'),
                         help='Root directory of dataset')
     parser.add_argument('-o', '--out', type=str, dest='out',
-                        default=('D:\\Data\\Resnet\\Multi_folder-2022'),
+                        default=('/home/major/data/21-scene/resnet/multi_folder-2022'),
                         help='Directory of output')
     parser.add_argument('-b', action='store_true',
                         help='boolean for generateing near/far-range map')

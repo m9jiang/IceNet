@@ -3,6 +3,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0, 1, 2'
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
+from torchvision import models  # noqa: E402
 from models import SSResNet  # noqa: E402
 from main import train  # noqa: E402
 from utils import load_masks, get_patch_samples, read_yaml  # noqa: E402
@@ -19,7 +20,7 @@ def main(config_path: str,
     '''
     config = read_yaml(config_path)
     patch_size = config['model']['input_shape'][2]
-    dirs = os.listdir(dir)
+    dirs = os.listdir(root)
     if 'results' in dirs:
         dirs.remove('results')
     all_train_data = None
@@ -90,15 +91,22 @@ def main(config_path: str,
     all_val_data = torch.from_numpy(all_val_data).float()
     all_val_target = torch.from_numpy(all_val_target).long()
 
-    # delete model?
+    # TODO: add model to config
     model = SSResNet.ResNet(config['model'])
+    # model = models.resnet50(num_classes=config['model']['n_classes'])
+    # model.name = 'ResNet50'
+    # model.conv1 = torch.nn.Conv2d(2, 64, kernel_size=3, stride=1, padding=1, bias=False)
+    # model.conv1 = torch.nn.Conv2d(2, 64, kernel_size=7, stride=2, padding=3, bias=False)
     train(model=model,
+          patch_size=patch_size,
           train_data=all_train_data,
           train_target=all_train_target,
           val_data=all_val_data,
           val_target=all_val_target,
-          batch_size=16384,
+          # batch_size=16384,
+          batch_size=4000,
           gpu_idx=config['trainer']['gpu_idx'],
+          n_epoch=300,
           save_dir=root)
 
     print("Done")
